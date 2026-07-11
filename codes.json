@@ -1,14 +1,17 @@
 [
   {
-    "code": "0602",
-    "reward": 1000
+    "code": "8888",
+    "reward": 5000,
+    "status": "available"
   },
   {
-    "code": "GIFT",
-    "reward": 2000
-  }
+    "code": "9999",
+    "reward": 2000,
+    "status": "used"
+  },
   {
     "code": "GAYY",
-    "reward": 3636
+    "reward": 3636,
+    "status": "used"
   }
 ]
