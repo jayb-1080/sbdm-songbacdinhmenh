@@ -173,7 +173,7 @@
     </div>
 
     <script>
-        // BƯỚC QUAN TRỌNG: Hãy dán đường link Raw từ GitHub của bạn vào giữa hai dấu ngoặc kép dưới đây
+        // Link repo chính thức của ní
         const JSON_URL = "https://raw.githubusercontent.com/jayb-1080/sbdm-songbacdinhmenh/main/codes.json";
 
         function updateDisplay() {
@@ -213,27 +213,33 @@
             setMsg("Đang cạy két...", "");
 
             try {
-                const response = await fetch(JSON_URL);
+                // Tối ưu chống dính cache: Thêm đuôi thời gian thực t=...
+                const response = await fetch(`${JSON_URL}?t=${new Date().getTime()}`);
                 if (!response.ok) throw new Error("Không thể kết nối máy chủ.");
                 
                 const validCodesList = await response.json();
                 const matchedCode = validCodesList.find(item => item.code === codeValue);
 
                 if (matchedCode) {
-                    const claimedStorageKey = `claimed_code_${codeValue}`;
-                    
-                    if (localStorage.getItem(claimedStorageKey) === "true") {
-                        setMsg("Tham lam!", "warn");
+                    // Kiểm tra xem mã này đã bị đổi trạng thái "used" trên file JSON chưa
+                    if (matchedCode.status === "used") {
+                        setMsg("Mã này đã bị phe khác húp mất rồi!", "warn");
                     } else {
-                        const rewardAmount = matchedCode.reward || 1000;
-                        let currentBal = parseInt(localStorage.getItem('casino_balance') || '1000');
-                        currentBal += rewardAmount;
+                        const claimedStorageKey = `claimed_code_${codeValue}`;
                         
-                        localStorage.setItem('casino_balance', currentBal.toString());
-                        localStorage.setItem(claimedStorageKey, "true");
+                        if (localStorage.getItem(claimedStorageKey) === "true") {
+                            setMsg("Tham lam! Ăn rồi còn đòi ăn nữa!", "warn");
+                        } else {
+                            const rewardAmount = matchedCode.reward || 1000;
+                            let currentBal = parseInt(localStorage.getItem('casino_balance') || '1000');
+                            currentBal += rewardAmount;
+                            
+                            localStorage.setItem('casino_balance', currentBal.toString());
+                            localStorage.setItem(claimedStorageKey, "true");
 
-                        updateDisplay();
-                        setMsg(`Móc túi pà dà được +${rewardAmount} G!`, "win");
+                            updateDisplay();
+                            setMsg(`Móc túi pà dà được +${rewardAmount} G!`, "win");
+                        }
                     }
                 } else {
                     setMsg("ỐI ZỒI ÔI! NHẬP CÁI GÌ ĐẤY", "warn");
