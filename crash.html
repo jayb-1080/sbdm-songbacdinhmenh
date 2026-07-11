@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crash Rocket - ASCII Casino</title>
+    <style>
+        body { background-color: #0a0a0a; color: #dcdcdc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 50px; user-select: none; }
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; }
+        #top-bar { width: 450px; display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 20px; }
+        .view { display: flex; flex-direction: column; align-items: center; width: 450px; }
+        .scene { font-size: 16px; white-space: pre; line-height: 1; margin: 20px 0; min-height: 160px; text-align: center; background: #0f0f0f; border: 1px solid #333; padding: 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;}
+        input[type="number"] { background: #111; color: #fff; border: 1px solid #555; padding: 8px; width: 80px; text-align: center; font-family: inherit; }
+        button.action-btn { background: #111; color: #fff; border: 1px solid #555; padding: 8px 16px; font-family: inherit; cursor: pointer; font-weight: bold; }
+        button.action-btn:hover:not(:disabled) { background: #333; }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .win { color: #55ff55; text-shadow: 0 0 5px #55ff55; }
+        .lose { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        .warn { color: #ffff55; }
+        #sys-msg { height: 20px; margin-bottom: 10px; font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+    <h1>[ ASCII CASINO ]</h1>
+    <div id="top-bar">
+        <span id="balance-display">SỐ DƯ: 1000 G</span>
+        <button class="action-btn" id="btn-back" onclick="location.href='index.html'" style="padding: 2px 8px;">[ VỀ MENU ]</button>
+    </div>
+    <div id="sys-msg">Đặt cược và chơi!</div>
+    <div class="view">
+        <div class="scene" id="crash-scene"></div>
+        <div class="controls">
+            <input type="number" id="bet-crash" value="20" min="1">
+            <button class="action-btn" id="btn-crash-launch" onclick="playCrash()">[ PHÓNG ]</button>
+            <button class="action-btn" id="btn-crash-stop" onclick="stopCrash()" disabled>[ CHỐT LỜI ]</button>
+        </div>
+    </div>
+    <script>
+        let balance = parseInt(localStorage.getItem('casino_balance') || '1000');
+        let isGameRunning = false;
+        const msgEl = document.getElementById('sys-msg');
+        const balanceEl = document.getElementById('balance-display');
+        const btnBack = document.getElementById('btn-back');
+
+        function updateBal(amount) {
+            balance += amount;
+            localStorage.setItem('casino_balance', balance.toString());
+            balanceEl.innerText = `SỐ DƯ: ${Math.floor(balance)} G`;
+        }
+        updateBal(0);
+
+        function setMsg(text, type = '') { msgEl.innerHTML = `<span class="${type}">${text}</span>`; }
+        function checkBet(betAmount) {
+            if (isNaN(betAmount) || betAmount <= 0) { setMsg("Mức cược không hợp lệ!", "warn"); return false; }
+            if (betAmount > balance) { setMsg("Không đủ số dư!", "warn"); return false; }
+            return true;
+        }
+
+        let crashMult = 1.00, crashPoint = 1.00, crashInterval, currentBetCrash = 0;
+
+        function renderCrashChart(mult, isCrashed) {
+            let h = 8, w = 30; let grid = Array(h).fill(0).map(() => Array(w).fill(' '));
+            let progress = Math.min(1, (mult - 1) / 4.0); 
+            let curX = Math.floor(progress * (w - 4)), curY = Math.floor(progress * (h - 2));
+            for(let i = 0; i <= curX; i++) {
+                let y = Math.floor((i / (w - 4)) * (h - 2)); grid[h - 2 - y][i+1] = '.';
+            }
+            if (isCrashed) {
+                grid[h - 2 - curY][curX+1] = '*'; grid[h - 2 - curY][curX+2] = 'X'; grid[h - 2 - curY][curX+3] = '*';
+            } else { grid[h - 2 - curY][curX+1] = '='; grid[h - 2 - curY][curX+2] = '>'; }
+            for(let i = 1; i < w; i++) grid[h-1][i] = '_';
+            for(let i = 0; i < h; i++) grid[i][0] = '|';
+            grid[h-1][0] = '+';
+            let multText = isCrashed ? `Hệ số: <span class="lose">${mult.toFixed(2)}x</span>` : `Hệ số: ${mult.toFixed(2)}x`;
+            return `${multText}\n\n` + grid.map(r => r.join('')).join('\n');
+        }
+        document.getElementById('crash-scene').innerHTML = renderCrashChart(1.00, false);
+
+        function playCrash() {
+            currentBetCrash = parseInt(document.getElementById('bet-crash').value);
+            if (!checkBet(currentBetCrash)) return;
+            isGameRunning = true; updateBal(-currentBetCrash);
+            document.getElementById('btn-crash-launch').disabled = true;
+            document.getElementById('btn-crash-stop').disabled = false;
+            btnBack.disabled = true;
+            crashPoint = Math.max(1.00, 0.99 / Math.random());
+            if (crashPoint > 50) crashPoint = 50 + Math.random()*50; 
+            crashMult = 1.00; const scene = document.getElementById('crash-scene');
+            crashInterval = setInterval(() => {
+                crashMult += (0.01 + crashMult * 0.006);
+                if (crashMult >= crashPoint) {
+                    clearInterval(crashInterval); scene.innerHTML = renderCrashChart(crashPoint, true);
+                    setMsg(`Đồ thị sập ở ${crashPoint.toFixed(2)}x! Mất trắng -${currentBetCrash} G`, "lose"); endCrashMode();
+                } else { scene.innerHTML = renderCrashChart(crashMult, false); }
+            }, 60);
+        }
+        function stopCrash() {
+            if (!isGameRunning) return;
+            clearInterval(crashInterval); let wonAmount = Math.floor(currentBetCrash * crashMult); updateBal(wonAmount);
+            let finalChart = renderCrashChart(crashMult, false) + '\n\n<span class="win">(ĐÃ CHỐT LỜI)</span>';
+            document.getElementById('crash-scene').innerHTML = finalChart;
+            setMsg(`Chốt lời thành công! Thắng +${wonAmount} G`, "win"); endCrashMode();
+        }
+        function endCrashMode() { isGameRunning = false; document.getElementById('btn-crash-launch').disabled = false; document.getElementById('btn-crash-stop').disabled = true; btnBack.disabled = false; }
+    </script>
+</body>
+</html>

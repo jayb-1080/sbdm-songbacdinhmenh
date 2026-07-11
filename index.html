@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBĐM - SÒNG BẠC ĐỊNH MỆNH</title>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #dcdcdc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding: 20px 10px 0 10px; /* Giảm padding trên mobile để đỡ bị đẩy khung */
+            user-select: none;
+            box-sizing: border-box;
+        }
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; text-align: center; margin-top: 10px; }
+        
+        /* Container tổng chia tỷ lệ theo màn hình */
+        #top-bar, .view {
+            width: 100%;
+            max-width: 450px; /* Trên PC tối đa là 450px, trên mobile tự co theo chiều rộng màn hình */
+            box-sizing: border-box;
+        }
+
+        #top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px dashed #555;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+        .balance-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            justify-content: space-between; /* Đẩy số dư sang trái, nút [+] sang phải trên mobile */
+        }
+        .add-funds-btn {
+            background: #222;
+            color: #55ff55;
+            border: 1px solid #55ff55;
+            padding: 4px 8px; /* Tăng nhẹ để mobile dễ chạm trúng */
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            text-shadow: 0 0 3px #55ff55;
+        }
+        .add-funds-btn:hover {
+            background: #55ff55;
+            color: #000;
+        }
+        
+        .view { display: flex; flex-direction: column; align-items: center; }
+        .menu-btn {
+            background: #111; color: #ddd; border: 1px solid #444;
+            padding: 14px 12px; margin: 6px 0; width: 100%; font-family: inherit;
+            cursor: pointer; font-size: 15px; text-align: left;
+            text-decoration: none; box-sizing: border-box;
+            word-break: break-all; /* Tránh tràn chữ trên màn hình quá nhỏ */
+        }
+        .menu-btn:hover { background: #222; padding-left: 20px; transition: 0.2s; }
+        #sys-msg { min-height: 20px; margin-bottom: 15px; font-style: italic; color: #888; text-align: center; font-size: 14px; }
+
+        /* Giao diện bảng nhập Code (Hỗ trợ tốt cho Mobile) */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            padding: 0 20px; /* Thêm padding tránh đập sát viền mobile */
+            box-sizing: border-box;
+        }
+        .modal-box {
+            background: #0f0f0f;
+            border: 1px solid #555;
+            padding: 20px;
+            text-align: center;
+            width: 100%;
+            max-width: 300px; /* PC giữ nguyên kích thước nhỏ gọn */
+            box-shadow: 0 0 15px rgba(255,255,255,0.1);
+            box-sizing: border-box;
+        }
+        .modal-title {
+            font-size: 14px;
+            margin-bottom: 15px;
+            color: #ffff55;
+            line-height: 1.4;
+            white-space: nowrap; /* Giữ nguyên khung ASCII */
+        }
+        .modal-input {
+            background: #111;
+            color: #fff;
+            border: 1px solid #555;
+            font-family: inherit;
+            font-size: 20px;
+            letter-spacing: 5px;
+            text-align: center;
+            width: 140px;
+            padding: 8px 5px;
+            margin-bottom: 15px;
+            outline: none;
+            box-sizing: border-box;
+        }
+        .modal-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+        }
+        .modal-btn {
+            background: #222;
+            color: #fff;
+            border: 1px solid #555;
+            font-family: inherit;
+            padding: 8px 18px; /* Mobile dễ nhấn hơn */
+            cursor: pointer;
+        }
+        .modal-btn:hover {
+            background: #444;
+        }
+        .warn { color: #ff5555; }
+        .win { color: #55ff55; }
+
+        /* Mẹo tối ưu hóa CSS riêng cho các màn hình điện thoại siêu nhỏ */
+        @media (max-width: 360px) {
+            h1 { font-size: 20px; }
+            .menu-btn { font-size: 13px; padding: 12px 10px; }
+            .modal-title { font-size: 11px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>[ SÒNG BẠC ĐỊNH MỆNH ]</h1>
+    
+    <div id="top-bar">
+        <div class="balance-container">
+            <span id="balance-display">SỐ DƯ: 1000 G</span>
+            <button class="add-funds-btn" onclick="openCodeModal()">[+]</button>
+        </div>
+    </div>
+
+    <div id="sys-msg">Chọn một trò chơi để bắt đầu...</div>
+
+    <div class="view">
+        <a class="menu-btn" href="slot.html">TÍCH CỰC QUAY TAY, VẬN MAY SẼ ĐẾN</a>
+        <a class="menu-btn" href="blackjack.html">XÁCH DÌ</a>
+        <a class="menu-btn" href="dice.html">XÚC XẮC XÚC XẺ</a>
+        <a class="menu-btn" href="crash.html">ĐƯỢC ĂN CẢ, NGÃ ĂN CUWTS</a>
+        <a class="menu-btn" href="roulette.html">KIẾP ĐỎ ĐEN</a>
+    </div>
+
+    <div id="code-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">┌───────────────────┐<br>│  NHẬP MẬT KHẨU NGÂN HÀNG  │<br>└───────────────────┘</div>
+            <input type="text" id="code-input" class="modal-input" maxlength="4" placeholder="••••" onkeydown="if(event.key==='Enter')submitCode()">
+            <div class="modal-buttons">
+                <button class="modal-btn" onclick="submitCode()">[ OK ]</button>
+                <button class="modal-btn" onclick="closeCodeModal()">[ HỦY ]</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // BƯỚC QUAN TRỌNG: Hãy dán đường link Raw từ GitHub của bạn vào giữa hai dấu ngoặc kép dưới đây
+        const JSON_URL = "https://raw.githubusercontent.com/jayb-1080/my-casino-code/refs/heads/main/codes.json";
+
+        function updateDisplay() {
+            if (localStorage.getItem('casino_balance') === null) {
+                localStorage.setItem('casino_balance', '1000');
+            }
+            const balance = parseInt(localStorage.getItem('casino_balance'));
+            document.getElementById('balance-display').innerText = `SỐ DƯ: ${balance} G`;
+        }
+        
+        updateDisplay();
+
+        function setMsg(text, type = '') {
+            const msgEl = document.getElementById('sys-msg');
+            msgEl.innerHTML = `<span class="${type}">${text}</span>`;
+        }
+
+        function openCodeModal() {
+            document.getElementById('code-input').value = '';
+            document.getElementById('code-modal').style.display = 'flex';
+            document.getElementById('code-input').focus();
+        }
+
+        function closeCodeModal() {
+            document.getElementById('code-modal').style.display = 'none';
+        }
+
+        async function submitCode() {
+            const codeValue = document.getElementById('code-input').value.trim();
+            
+            if (codeValue === "") {
+                setMsg("Ơ đã nhập gì đâu?!", "warn");
+                closeCodeModal();
+                return;
+            }
+
+            setMsg("Đang cạy két...", "");
+
+            try {
+                const response = await fetch(JSON_URL);
+                if (!response.ok) throw new Error("Không thể kết nối máy chủ.");
+                
+                const validCodesList = await response.json();
+                const matchedCode = validCodesList.find(item => item.code === codeValue);
+
+                if (matchedCode) {
+                    const claimedStorageKey = `claimed_code_${codeValue}`;
+                    
+                    if (localStorage.getItem(claimedStorageKey) === "true") {
+                        setMsg("Tham lam!", "warn");
+                    } else {
+                        const rewardAmount = matchedCode.reward || 1000;
+                        let currentBal = parseInt(localStorage.getItem('casino_balance') || '1000');
+                        currentBal += rewardAmount;
+                        
+                        localStorage.setItem('casino_balance', currentBal.toString());
+                        localStorage.setItem(claimedStorageKey, "true");
+
+                        updateDisplay();
+                        setMsg(`Móc túi pà dà được +${rewardAmount} G!`, "win");
+                    }
+                } else {
+                    setMsg("ỐI ZỒI ÔI! NHẬP CÁI GÌ ĐẤY", "warn");
+                }
+
+            } catch (error) {
+                console.error(error);
+                setMsg("Lỗi kết nối database code!", "warn");
+            }
+
+            closeCodeModal();
+        }
+    </script>
+    
+</body>
+</html>

@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBĐM - SÒNG BẠC ĐỊNH MỆNH</title>
+    <style>
+        body { background-color: #0a0a0a; color: #dcdcdc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 50px; user-select: none; }
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; }
+        #top-bar { width: 450px; display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 20px; }
+        .view { display: flex; flex-direction: column; align-items: center; width: 450px; }
+        .scene { font-size: 16px; min-height: 180px; font-family: monospace; line-height: 1.1; margin: 20px 0; background: #0f0f0f; border: 1px solid #333; padding: 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex-direction: column; white-space: pre;}
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;}
+        button.action-btn { background: #111; color: #fff; border: 1px solid #555; padding: 8px 16px; font-family: inherit; cursor: pointer; font-weight: bold; }
+        button.action-btn:hover:not(:disabled) { background: #333; }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .win { color: #55ff55; text-shadow: 0 0 5px #55ff55; }
+        .lose { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        .warn { color: #ffff55; }
+        .hidden-card { color: #555; }
+        .r-btn { background: #111; border: 1px solid #444; cursor: pointer; text-align: center; font-size: 14px; padding: 2px; }
+        .r-btn:hover { background: #222; }
+        .r-red { color: #ff5555; border-color: #552222; }
+        .r-black { color: #aaa; border-color: #444; }
+        .r-green { color: #55ff55; border-color: #225522; }
+        .r-chip-amt { display: block; color: #ffff55; font-size: 10px; min-height: 12px; margin-top: 2px; font-weight: bold; }
+        .chip-active { background: #ffff55 !important; color: #000 !important; }
+        #sys-msg { height: 20px; margin-bottom: 10px; font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+    <h1>[ SÒNG BẠC ĐỊNH MỆNH ]</h1>
+    <div id="top-bar">
+        <span id="balance-display">SỐ DƯ: 1000 G</span>
+        <button class="action-btn" id="btn-back" onclick="location.href='index.html'" style="padding: 2px 8px;">[ VỀ MENU ]</button>
+    </div>
+    <div id="sys-msg">Đặt cược và chơi!</div>
+    <div class="view">
+        <div class="scene" id="r-scene-result"></div>
+        <div style="display:flex; gap: 4px; width: 100%; margin-bottom: 4px;">
+            <div class="r-btn r-green" style="display:flex; align-items:center; justify-content:center; flex: 1;" onclick="placeBetR(0)">
+                0<br><span class="r-chip-amt" id="r-bet-0"></span>
+            </div>
+            <div id="r-num-grid" style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; flex: 10;"></div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px; width: 100%; margin-bottom: 20px;">
+            <div class="r-btn" onclick="placeBetR('low')">1-18<br><span class="r-chip-amt" id="r-bet-low"></span></div>
+            <div class="r-btn" onclick="placeBetR('even')">CHẴN<br><span class="r-chip-amt" id="r-bet-even"></span></div>
+            <div class="r-btn r-red" onclick="placeBetR('red')">ĐỎ<br><span class="r-chip-amt" id="r-bet-red"></span></div>
+            <div class="r-btn r-black" onclick="placeBetR('black')">ĐEN<br><span class="r-chip-amt" id="r-bet-black"></span></div>
+            <div class="r-btn" onclick="placeBetR('odd')">LẺ<br><span class="r-chip-amt" id="r-bet-odd"></span></div>
+            <div class="r-btn" onclick="placeBetR('high')">19-36<br><span class="r-chip-amt" id="r-bet-high"></span></div>
+        </div>
+        <div class="controls" style="margin-bottom: 10px;">
+            <button class="action-btn chip-btn chip-active" id="chip-10" onclick="setChip(10)">[ 10 ]</button>
+            <button class="action-btn chip-btn" id="chip-50" onclick="setChip(50)">[ 50 ]</button>
+            <button class="action-btn chip-btn" id="chip-100" onclick="setChip(100)">[ 100 ]</button>
+            <button class="action-btn chip-btn" id="chip-500" onclick="setChip(500)">[ 500 ]</button>
+        </div>
+        <div class="controls">
+            <button class="action-btn" onclick="clearBetsR()">[ XÓA CƯỢC ]</button>
+            <button class="action-btn" id="btn-spin-r" onclick="spinR()" style="color:#55ff55; border-color:#55ff55;">[ QUAY ]</button>
+        </div>
+    </div>
+    <script>
+        let balance = parseInt(localStorage.getItem('casino_balance') || '1000');
+        let isGameRunning = false;
+        const msgEl = document.getElementById('sys-msg');
+        const balanceEl = document.getElementById('balance-display');
+        const btnBack = document.getElementById('btn-back');
+
+        function updateBal(amount) {
+            balance += amount;
+            localStorage.setItem('casino_balance', balance.toString());
+            balanceEl.innerText = `SỐ DƯ: ${Math.floor(balance)} G`;
+        }
+        updateBal(0);
+
+        function setMsg(text, type = '') { msgEl.innerHTML = `<span class="${type}">${text}</span>`; }
+
+        const rReds = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+        let rBets = {}, rChip = 10;
+
+        function buildRouletteGrid() {
+            let grid = document.getElementById('r-num-grid'); let html = '';
+            let layout = [[3,6,9,12,15,18,21,24,27,30,33,36],[2,5,8,11,14,17,20,23,26,29,32,35],[1,4,7,10,13,16,19,22,25,28,31,34]];
+            layout.forEach(row => { row.forEach(n => {
+                let c = rReds.includes(n) ? 'r-red' : 'r-black';
+                html += `<div class="r-btn ${c}" onclick="placeBetR(${n})">${n}<br><span class="r-chip-amt" id="r-bet-${n}"></span></div>`;
+            });});
+            grid.innerHTML = html;
+        }
+        buildRouletteGrid();
+
+        function setChip(val) {
+            if (isGameRunning) return; rChip = val;
+            document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('chip-active'));
+            document.getElementById(`chip-${val}`).classList.add('chip-active');
+        }
+        function placeBetR(type) {
+            if (isGameRunning) return; if (balance < rChip) { setMsg("Không đủ số dư!", "warn"); return; }
+            updateBal(-rChip); rBets[type] = (rBets[type] || 0) + rChip; renderRBets();
+        }
+        function clearBetsR() {
+            if (isGameRunning) return; let totalRefund = Object.values(rBets).reduce((a,b) => a + b, 0);
+            if (totalRefund > 0) { updateBal(totalRefund); rBets = {}; renderRBets(); setMsg("Đã hoàn trả tiền cược Roulette."); }
+        }
+        function renderRBets() {
+            document.querySelectorAll('.r-chip-amt').forEach(el => el.innerText = '');
+            for (let k in rBets) { let el = document.getElementById(`r-bet-${k}`); if (el) el.innerText = rBets[k]; }
+        }
+
+        const baseWheelPattern = ["0", "*", ".", "*", ".", "*", ".", "*", ".", "*", ".", "*"];
+        function getASCIIWheel(offset, centerText = "ROULETTE") {
+            let currentPattern = []; for (let i = 0; i < 12; i++) currentPattern[i] = baseWheelPattern[(i + offset) % 12];
+            let colorized = currentPattern.map(char => {
+                if (char === "*") return `<span class="lose">*</span>`; if (char === ".") return `<span class="hidden-card">.</span>`; return `<span class="win">0</span>`;
+            });
+            return `\n    ${colorized[0]}   ${colorized[1]}   ${colorized[2]}\n  ${colorized[11]}           ${colorized[3]}\n ${colorized[10]}   [${centerText}]   ${colorized[4]}\n  ${colorized[9]}           ${colorized[5]}\n    ${colorized[8]}   ${colorized[7]}   ${colorized[6]}\n`;
+        }
+        function renderDefaultWheel() { document.getElementById('r-scene-result').innerHTML = getASCIIWheel(0, "CHỜ CƯỢC"); }
+        renderDefaultWheel();
+
+        function spinR() {
+            let totalBet = Object.values(rBets).reduce((a,b) => a + b, 0); if (totalBet === 0) { setMsg("Hãy chọn cửa đặt cược trước!", "warn"); return; }
+            isGameRunning = true; btnBack.disabled = true; document.getElementById('btn-spin-r').disabled = true;
+            let scene = document.getElementById('r-scene-result'); let frame = 0, currentOffset = 0;
+            let spinInt = setInterval(() => {
+                currentOffset = (currentOffset + 1) % 12; let tempNum = Math.floor(Math.random() * 37);
+                scene.innerHTML = getASCIIWheel(currentOffset, `  ${tempNum < 10 ? '0' + tempNum : tempNum}  `); frame++;
+                if (frame > 25) {
+                    clearInterval(spinInt); let resultNum = Math.floor(Math.random() * 37);
+                    let isRed = rReds.includes(resultNum); let colClass = resultNum === 0 ? "win" : (isRed ? "lose" : "hidden-card"); let colName = resultNum === 0 ? "XANH" : (isRed ? "ĐỎ" : "ĐEN");
+                    let finalCenter = `<span class="${colClass}">${resultNum}-${colName}</span>`; scene.innerHTML = getASCIIWheel(currentOffset, finalCenter);
+                    let winAmt = 0;
+                    for (let k in rBets) {
+                        let amt = rBets[k];
+                        if (k == resultNum) winAmt += amt * 36; if (k === 'red' && isRed) winAmt += amt * 2; if (k === 'black' && !isRed && resultNum !== 0) winAmt += amt * 2;
+                        if (k === 'even' && resultNum % 2 === 0 && resultNum !== 0) winAmt += amt * 2; if (k === 'odd' && resultNum % 2 !== 0) winAmt += amt * 2;
+                        if (k === 'low' && resultNum >= 1 && resultNum <= 18) winAmt += amt * 2; if (k === 'high' && resultNum >= 19 && resultNum <= 36) winAmt += amt * 2;
+                    }
+                    if (winAmt > 0) { updateBal(winAmt); setMsg(`Về ${resultNum} ${colName}. Trúng +${winAmt} G!`, "win"); } else { setMsg(`Về ${resultNum} ${colName}. Trật hết rồi!`, "lose"); }
+                    rBets = {}; renderRBets(); isGameRunning = false; btnBack.disabled = false; document.getElementById('btn-spin-r').disabled = false;
+                }
+            }, 70);
+        }
+    </script>
+</body>
+</html>

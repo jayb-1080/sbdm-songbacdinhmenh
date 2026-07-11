@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBĐM - SÒNG BẠC ĐỊNH MỆNH</title>
+    <style>
+        body { background-color: #0a0a0a; color: #dcdcdc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 50px; user-select: none; }
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; }
+        #top-bar { width: 450px; display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 20px; }
+        .view { display: flex; flex-direction: column; align-items: center; width: 450px; }
+        .scene { font-size: 20px; white-space: pre; line-height: 1.2; margin: 20px 0; min-height: 160px; text-align: center; background: #0f0f0f; border: 1px solid #333; padding: 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;}
+        input[type="number"] { background: #111; color: #fff; border: 1px solid #555; padding: 8px; width: 80px; text-align: center; font-family: inherit; }
+        button.action-btn { background: #111; color: #fff; border: 1px solid #555; padding: 8px 16px; font-family: inherit; cursor: pointer; font-weight: bold; }
+        button.action-btn:hover:not(:disabled) { background: #333; }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .win { color: #55ff55; text-shadow: 0 0 5px #55ff55; }
+        .lose { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        .warn { color: #ffff55; }
+        .lever { cursor: pointer; color: #ff5555; font-weight: bold; transition: 0.2s; }
+        .dice-board { display: flex; justify-content: space-between; width: 100%; font-size: 14px; margin-bottom: 20px; }
+        .dice-container { display: flex; justify-content: center; gap: 40px; font-size: 80px; line-height: 1; margin-bottom: 20px; }
+        .dice-text { font-size: 18px; font-weight: bold; min-height: 22px; }
+        #sys-msg { height: 20px; margin-bottom: 10px; font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+    <h1>[ SÒNG BẠC ĐỊNH MỆNH ]</h1>
+    <div id="top-bar">
+        <span id="balance-display">SỐ DƯ: 1000 G</span>
+        <button class="action-btn" id="btn-back" onclick="location.href='index.html'" style="padding: 2px 8px;">[ VỀ MENU ]</button>
+    </div>
+    <div id="sys-msg">Đặt cược và chơi!</div>
+    <div class="view">
+        <div class="scene" id="dice-scene" style="white-space: normal; justify-content: flex-start;">
+            <div style="margin-top: 40px; font-size: 16px;">Nhập cược và BẮT ĐẦU</div>
+        </div>
+        <div class="controls">
+            <input type="number" id="bet-dice" value="50" min="1">
+            <button class="action-btn" id="btn-dice-start" onclick="startNewDiceGame()">[ BẮT ĐẦU ]</button>
+        </div>
+    </div>
+    <script>
+        let balance = parseInt(localStorage.getItem('casino_balance') || '1000');
+        let isGameRunning = false;
+        const msgEl = document.getElementById('sys-msg');
+        const balanceEl = document.getElementById('balance-display');
+        const btnBack = document.getElementById('btn-back');
+
+        function updateBal(amount) {
+            balance += amount;
+            localStorage.setItem('casino_balance', balance.toString());
+            balanceEl.innerText = `SỐ DƯ: ${Math.floor(balance)} G`;
+        }
+        updateBal(0);
+
+        function setMsg(text, type = '') { msgEl.innerHTML = `<span class="${type}">${text}</span>`; }
+        function checkBet(betAmount) {
+            if (isNaN(betAmount) || betAmount <= 0) { setMsg("Mức cược không hợp lệ!", "warn"); return false; }
+            if (betAmount > balance) { setMsg("Không đủ số dư!", "warn"); return false; }
+            return true;
+        }
+
+        const diceFaces = ['⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+        let greenTargets = [], redTargets = [], currentDiceBet = 0, diceStep = 0, d1Result = '?', d2Result = '?';
+
+        function generateDiceTargets() {
+            let allVals = [2,3,4,5,6,7,8,9,10,11,12].sort(() => Math.random() - 0.5);
+            let gCount = Math.floor(Math.random() * 2) + 1; 
+            let rCount = Math.floor(Math.random() * 4) + 1; 
+            greenTargets = allVals.splice(0, gCount).sort((a,b)=>a-b);
+            redTargets = allVals.splice(0, rCount).sort((a,b)=>a-b);
+        }
+        function renderDiceScene(d1, d2, text = '') {
+            let gStr = `<span class="win">${greenTargets.join(', ')}</span>`;
+            let rStr = `<span class="lose">${redTargets.join(', ')}</span>`;
+            let die1Str = (d1 === '?') ? (diceStep === 1 ? `<span class="lever" onclick="rollTargetDie(1)">[?]</span>` : `<span style="color:#555;">[?]</span>`) : `${diceFaces[d1]}`;
+            let die2Str = (d2 === '?') ? (diceStep === 2 ? `<span class="lever" onclick="rollTargetDie(2)">[?]</span>` : `<span style="color:#555;">[?]</span>`) : `${diceFaces[d2]}`;
+            return `<div class="dice-board"><span>WIN: ${gStr}</span><span>LOSE: ${rStr}</span></div><div class="dice-container"><div>${die1Str}</div><div>${die2Str}</div></div><div class="dice-text">${text}</div>`;
+        }
+        function startNewDiceGame() {
+            let bet = parseInt(document.getElementById('bet-dice').value);
+            if (!checkBet(bet)) return;
+            isGameRunning = true; updateBal(-bet); currentDiceBet = bet;
+            document.getElementById('btn-dice-start').disabled = true; btnBack.disabled = true;
+            generateDiceTargets(); diceStep = 1; d1Result = '?'; d2Result = '?';
+            document.getElementById('dice-scene').innerHTML = renderDiceScene('?', '?');
+            setMsg("Hãy nhấn vào XÚC XẮC THỨ NHẤT!");
+        }
+        function rollTargetDie(step) {
+            if (!isGameRunning || diceStep !== step) return;
+            let scene = document.getElementById('dice-scene'); let frame = 0;
+            let rollInterval = setInterval(() => {
+                let tempVal = Math.floor(Math.random() * 6);
+                if (step === 1) scene.innerHTML = renderDiceScene(tempVal, '?');
+                else scene.innerHTML = renderDiceScene(d1Result, tempVal);
+                frame++;
+                if (frame > 10) {
+                    clearInterval(rollInterval); let finalVal = Math.floor(Math.random() * 6);
+                    if (step === 1) {
+                        d1Result = finalVal; diceStep = 2; scene.innerHTML = renderDiceScene(d1Result, '?'); setMsg("Tốt! Nhấn vào XÚC XẮC THỨ HAI.");
+                    } else {
+                        d2Result = finalVal; diceStep = 3; scene.innerHTML = renderDiceScene(d1Result, d2Result); checkDiceResult();
+                    }
+                }
+            }, 60);
+        }
+        function checkDiceResult() {
+            let scene = document.getElementById('dice-scene'); let total = (d1Result + 1) + (d2Result + 1);
+            scene.innerHTML = renderDiceScene(d1Result, d2Result, `Tổng = ${total}`);
+            if (greenTargets.includes(total)) {
+                updateBal(currentDiceBet * 2); setMsg(`Tổng ${total} trúng bảng XANH! Thắng +${currentDiceBet * 2} G`, "win"); endDiceGame();
+            } else if (redTargets.includes(total)) {
+                setMsg(`Tổng ${total} dính bảng ĐỎ! Bạn thua sạch.`, "lose"); endDiceGame();
+            } else {
+                setMsg(`Tổng ${total} không trùng! Bảng đang reset...`, "warn");
+                setTimeout(() => {
+                    generateDiceTargets(); diceStep = 1; d1Result = '?'; d2Result = '?';
+                    document.getElementById('dice-scene').innerHTML = renderDiceScene('?', '?'); setMsg("Bảng mới! Hãy đổ tiếp (Không mất phí).");
+                }, 2000); 
+            }
+        }
+        function endDiceGame() { isGameRunning = false; diceStep = 0; document.getElementById('btn-dice-start').disabled = false; btnBack.disabled = false; }
+    </script>
+</body>
+</html>

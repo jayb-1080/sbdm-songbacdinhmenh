@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBĐM - SÒNG BẠC ĐỊNH MỆNH</title>
+    <style>
+        body { background-color: #0a0a0a; color: #dcdcdc; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; padding-top: 50px; user-select: none; }
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; }
+        #top-bar { width: 450px; display: flex; justify-content: space-between; border-bottom: 1px dashed #555; padding-bottom: 10px; margin-bottom: 20px; }
+        .view { display: flex; flex-direction: column; align-items: center; width: 450px; }
+        .scene { font-size: 20px; white-space: pre; line-height: 1.2; margin: 20px 0; min-height: 160px; text-align: center; background: #0f0f0f; border: 1px solid #333; padding: 20px; width: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; flex-direction: row; }
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;}
+        input[type="number"] { background: #111; color: #fff; border: 1px solid #555; padding: 8px; width: 80px; text-align: center; font-family: inherit; }
+        button.action-btn { background: #111; color: #fff; border: 1px solid #555; padding: 8px 16px; font-family: inherit; cursor: pointer; font-weight: bold; }
+        button.action-btn:hover:not(:disabled) { background: #333; }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .win { color: #55ff55; text-shadow: 0 0 5px #55ff55; }
+        .lose { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        .warn { color: #ffff55; }
+        .lever { cursor: pointer; color: #ff5555; font-weight: bold; transition: 0.2s; }
+        .lever-label { cursor: pointer; color: #ff5555; font-weight: bold; transition: 0.2s; margin-left: 15px; }
+        .lever-label:hover { color: #ffaaaa; text-shadow: 0 0 8px #ff5555; }
+        .lever-disabled { color: #444; cursor: default; }
+        #sys-msg { height: 20px; margin-bottom: 10px; font-style: italic; color: #888; }
+    </style>
+</head>
+<body>
+    <h1>[ SÒNG BẠC ĐỊNH MỆNH ]</h1>
+    <div id="top-bar">
+        <span id="balance-display">SỐ DƯ: 1000 G</span>
+        <button class="action-btn" id="btn-back" onclick="location.href='index.html'" style="padding: 2px 8px;">[ VỀ MENU ]</button>
+    </div>
+    <div id="sys-msg">Đặt cược và chơi!</div>
+    <div class="view">
+        <div class="scene" id="slot-scene">
+            <div id="slot-reels"></div>
+            <label id="slot-lever" class="lever-label" onclick="playSlot()"></label>
+        </div>
+        <div class="controls">
+            <span style="line-height: 35px; color:#888;">Cược:</span>
+            <input type="number" id="bet-slot" value="10" min="1">
+            <span style="line-height: 35px; color:#888; font-style: italic; margin-left:10px;">(Click vào CẦN GẠT)</span>
+        </div>
+    </div>
+    <script>
+        let balance = parseInt(localStorage.getItem('casino_balance') || '1000');
+        let isGameRunning = false;
+        const msgEl = document.getElementById('sys-msg');
+        const balanceEl = document.getElementById('balance-display');
+        const btnBack = document.getElementById('btn-back');
+
+        function updateBal(amount) {
+            balance += amount;
+            localStorage.setItem('casino_balance', balance.toString());
+            balanceEl.innerText = `SỐ DƯ: ${Math.floor(balance)} G`;
+        }
+        updateBal(0);
+
+        function setMsg(text, type = '') { msgEl.innerHTML = `<span class="${type}">${text}</span>`; }
+        function checkBet(betAmount) {
+            if (isNaN(betAmount) || betAmount <= 0) { setMsg("Mức cược không hợp lệ!", "warn"); return false; }
+            if (betAmount > balance) { setMsg("Có xiền k mà chơi", "warn"); return false; }
+            return true;
+        }
+
+        const slotSymbols = ['@', '#', '$', 'X', '7', '?', '!']; 
+        let currentSlot = ['-', '-', '-'];
+        function renderSlotReels(r1, r2, r3) { return ` ┌─────────────┐\n │  ${r1} │ ${r2} │ ${r3}  │\n └─────────────┘`; }
+        function renderSlotLever(leverState) {
+            if (leverState === 0) return ` O\n /\n /\n[]`;
+            else if (leverState === 1) return `\n--O\n\n[]`;
+            else return `\n \\\n \\\n[] O`;
+        }
+        function updateSlotDisplay(leverState) {
+            document.getElementById('slot-reels').innerText = renderSlotReels(currentSlot[0], currentSlot[1], currentSlot[2]);
+            const leverEl = document.getElementById('slot-lever');
+            leverEl.innerText = renderSlotLever(leverState);
+            if (leverState !== 0 || isGameRunning) leverEl.classList.add('lever-disabled');
+            else leverEl.classList.remove('lever-disabled');
+        }
+        updateSlotDisplay(0);
+
+        function playSlot() {
+            if (isGameRunning) return;
+            let bet = parseInt(document.getElementById('bet-slot').value);
+            if (!checkBet(bet)) return;
+            isGameRunning = true; updateBal(-bet); btnBack.disabled = true;
+            let frame = 0;
+            let pullInterval = setInterval(() => {
+                if (frame === 0) updateSlotDisplay(1);
+                if (frame === 1) updateSlotDisplay(2);
+                if (frame === 2) updateSlotDisplay(1);
+                if (frame === 3) {
+                    updateSlotDisplay(0); clearInterval(pullInterval);
+                    let spins = 0;
+                    let spinInterval = setInterval(() => {
+                        let r1 = slotSymbols[Math.floor(Math.random()*7)];
+                        let r2 = slotSymbols[Math.floor(Math.random()*7)];
+                        let r3 = slotSymbols[Math.floor(Math.random()*7)];
+                        currentSlot = [r1, r2, r3]; updateSlotDisplay(0); spins++;
+                        if (spins > 20) {
+                            clearInterval(spinInterval); isGameRunning = false; btnBack.disabled = false; updateSlotDisplay(0);
+                            if (r1 === r2 && r2 === r3) {
+                                let mult = (r1 === '7') ? 20 : 10; updateBal(bet * mult); setMsg(`NỔ HŨ! x${mult}. Thắng +${bet * mult} G`, "win");
+                            } else if (r1 === r2) { 
+                                updateBal(bet * 2); setMsg(`Trúng 2 ô liền kề! x2. Thắng +${bet * 2} G`, "win");
+                            } else { setMsg(`Trật rồi! Mất -${bet} G`, "lose"); }
+                        }
+                    }, 50);
+                }
+                frame++;
+            }, 80);
+        }
+    </script>
+</body>
+</html>

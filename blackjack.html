@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SBĐM - SÒNG BẠC ĐỊNH MỆNH</title>
+    <style>
+        body {
+            background-color: #0a0a0a;
+            color: #dcdcdc;
+            font-family: 'Courier New', Courier, monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            height: 100vh;
+            margin: 0;
+            padding-top: 50px;
+            user-select: none;
+        }
+
+        h1 { letter-spacing: 2px; text-shadow: 0 0 5px #fff; font-size: 24px; }
+        
+        #top-bar {
+            width: 450px;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed #555;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .view { display: flex; flex-direction: column; align-items: center; width: 450px; }
+
+        .scene-bj {
+            font-size: 16px; 
+            white-space: pre; 
+            line-height: 1.2;
+            margin: 20px 0; 
+            min-height: 240px; 
+            text-align: left;
+            background: #0f0f0f; 
+            border: 1px solid #333; 
+            padding: 20px;
+            width: 100%; 
+            box-sizing: border-box; 
+            display: flex;
+            align-items: flex-start; 
+            justify-content: center; 
+            flex-direction: column;
+        }
+
+        .controls { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center;}
+        
+        input[type="number"] {
+            background: #111; color: #fff; border: 1px solid #555;
+            padding: 8px; width: 80px; text-align: center; font-family: inherit;
+        }
+
+        button.action-btn {
+            background: #111; color: #fff; border: 1px solid #555;
+            padding: 8px 16px; font-family: inherit; cursor: pointer; font-weight: bold;
+        }
+        button.action-btn:hover:not(:disabled) { background: #333; }
+        button.action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .win { color: #55ff55; text-shadow: 0 0 5px #55ff55; }
+        .lose { color: #ff5555; text-shadow: 0 0 5px #ff5555; }
+        .warn { color: #ffff55; }
+        .red-card { color: #ff5555; }
+        
+        #sys-msg { height: 20px; margin-bottom: 10px; font-style: italic; color: #888; }
+
+        .card-container { display: flex; margin-top: 5px; min-height: 85px; flex-direction: row; }
+        
+        /* FIX HOÀN TOÀN LỖI LỆCH KHUNG: Giữ cấu trúc monospace tuyệt đối */
+        .ascii-card { 
+            display: inline-block; 
+            margin-right: 12px; 
+            text-align: left; 
+            line-height: 1.1; 
+            font-size: 16px; 
+            font-family: 'Courier New', monospace;
+            white-space: pre; 
+        }
+        .hidden-card { color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>[ SÒNG BẠC ĐỊNH MỆNH ]</h1>
+    
+    <div id="top-bar">
+        <span id="balance-display">SỐ DƯ: 1000 G</span>
+        <button class="action-btn" id="btn-back" onclick="location.href='index.html'" style="padding: 2px 8px;">[ VỀ MENU ]</button>
+    </div>
+
+    <div id="sys-msg">Đặt cược và chơi!</div>
+
+    <div class="view">
+        <div class="scene-bj" id="bj-scene"></div>
+        <div class="controls">
+            <input type="number" id="bet-bj" value="50" min="1">
+            <button class="action-btn" id="btn-bj-deal" onclick="startBJ()">[ CHIA BÀI ]</button>
+            <button class="action-btn" id="btn-bj-hit" onclick="hitBJ()" disabled>[ RÚT ]</button>
+            <button class="action-btn" id="btn-bj-stand" onclick="standBJ()" disabled>[ DỪNG ]</button>
+        </div>
+    </div>
+
+    <script>
+        let balance = parseInt(localStorage.getItem('casino_balance') || '1000');
+        let isGameRunning = false;
+        const msgEl = document.getElementById('sys-msg');
+        const balanceEl = document.getElementById('balance-display');
+        const btnBack = document.getElementById('btn-back');
+
+        function updateBal(amount) {
+            balance += amount;
+            localStorage.setItem('casino_balance', balance.toString());
+            balanceEl.innerText = `SỐ DƯ: ${Math.floor(balance)} G`;
+        }
+        updateBal(0);
+
+        function setMsg(text, type = '') {
+            msgEl.innerHTML = `<span class="${type}">${text}</span>`;
+        }
+
+        function checkBet(betAmount) {
+            if (isNaN(betAmount) || betAmount <= 0) { setMsg("Mức cược không hợp lệ!", "warn"); return false; }
+            if (betAmount > balance) { setMsg("Không đủ số dư!", "warn"); return false; }
+            return true;
+        }
+
+        const suits = ['♠', '♣', '<span class="red-card">♥</span>', '<span class="red-card">♦</span>'];
+        const values = ['2','3','4','5','6','7','8','9','10','J','Q','K','A'];
+        let deck = [], pHand = [], dHand = [], bjBet = 0;
+
+        function getDeck() {
+            let d = [];
+            for (let s of suits) for (let v of values) d.push({v, s});
+            return d.sort(() => Math.random() - 0.5);
+        }
+
+        function getScore(hand) {
+            let score = 0, aces = 0;
+            for (let card of hand) {
+                if (['J','Q','K'].includes(card.v)) score += 10;
+                else if (card.v === 'A') { score += 11; aces += 1; }
+                else score += parseInt(card.v);
+            }
+            while (score > 21 && aces > 0) { score -= 10; aces -= 1; }
+            return score;
+        }
+
+        // FIX: Loại bỏ <br> lồng nhau, vẽ thuần ký tự xuống dòng \n và căn chỉnh &nbsp; chính xác cho từng dòng
+        function renderCardASCII(card, isHidden) {
+            if (isHidden) {
+                return `<span class="ascii-card hidden-card">┌───┐\n│?  │\n│ ? │\n│  ?│\n└───┘</span>`;
+            }
+            let v1 = card.v.length === 2 ? card.v : card.v + ' ';
+            let v2 = card.v.length === 2 ? card.v : ' ' + card.v;
+            // Thay khoảng trắng quanh suit để biểu tượng unicode lớn không bóp méo khung
+            return `<span class="ascii-card">┌───┐\n│${v1} │\n│ ${card.s} │\n│ ${v2}│\n└───┘</span>`;
+        }
+
+        function renderBJ(hideDealer = false) {
+            let pStr = pHand.map(c => renderCardASCII(c, false)).join('');
+            let dStr = dHand.map((c, index) => renderCardASCII(c, hideDealer && index === 1)).join('');
+            document.getElementById('bj-scene').innerHTML = 
+                `Nhà cái:\n<div class="card-container">${dStr}</div>\n` +
+                `Bạn (Điểm: ${getScore(pHand)}):\n<div class="card-container">${pStr}</div>`;
+        }
+        
+        function initDisplay() {
+            let blankCard = renderCardASCII({v:'?', s:'?'}, true);
+            document.getElementById('bj-scene').innerHTML = `Nhà cái:\n<div class="card-container">${blankCard}${blankCard}</div>\nBạn:\n<div class="card-container">${blankCard}${blankCard}</div>`;
+        }
+        initDisplay();
+
+        function startBJ() {
+            bjBet = parseInt(document.getElementById('bet-bj').value);
+            if (!checkBet(bjBet)) return;
+            
+            isGameRunning = true; 
+            updateBal(-bjBet);
+            
+            deck = getDeck(); 
+            pHand = [deck.pop(), deck.pop()]; 
+            dHand = [deck.pop(), deck.pop()];
+            
+            document.getElementById('btn-bj-deal').disabled = true;
+            document.getElementById('btn-bj-hit').disabled = false;
+            document.getElementById('btn-bj-stand').disabled = false;
+            btnBack.disabled = true;
+            
+            renderBJ(true);
+            setMsg("Rút thêm hoặc Dừng?");
+            if (getScore(pHand) === 21) standBJ();
+        }
+
+        function hitBJ() {
+            pHand.push(deck.pop());
+            renderBJ(true);
+            if (getScore(pHand) > 21) endGameBJ("Bạn Quắc (>21). Thua!", "lose", 0);
+        }
+
+        function standBJ() {
+            document.getElementById('btn-bj-hit').disabled = true;
+            document.getElementById('btn-bj-stand').disabled = true;
+            renderBJ(false); 
+            
+            let dInterval = setInterval(() => {
+                if (getScore(dHand) < 17) {
+                    dHand.push(deck.pop());
+                    renderBJ(false);
+                } else {
+                    clearInterval(dInterval);
+                    renderBJ(false);
+                    let pScore = getScore(pHand);
+                    let dScore = getScore(dHand);
+                    
+                    if (dScore > 21) endGameBJ("Nhà cái Quắc. Bạn thắng!", "win", bjBet * 2);
+                    else if (pScore > dScore) endGameBJ("Bạn lớn điểm hơn. Thắng!", "win", bjBet * 2);
+                    else if (pScore < dScore) endGameBJ("Nhà cái lớn điểm hơn. Thua!", "lose", 0);
+                    else endGameBJ("Hòa bài!", "warn", bjBet);
+                }
+            }, 600);
+        }
+
+        function endGameBJ(msg, type, payout) {
+            setMsg(msg, type);
+            if (payout > 0) updateBal(payout);
+            isGameRunning = false;
+            document.getElementById('btn-bj-deal').disabled = false;
+            document.getElementById('btn-bj-hit').disabled = true;
+            document.getElementById('btn-bj-stand').disabled = true;
+            btnBack.disabled = false;
+        }
+    </script>
+</body>
+</html>
