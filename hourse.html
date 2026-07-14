@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>ĐUA NGỰA - SBĐM</title>
+    <style>
+        body { background: #0a0a0a; color: #fff; font-family: 'Courier New', monospace; text-align: center; }
+        #track { border: 2px solid #555; width: 90%; max-width: 400px; margin: 20px auto; height: 200px; position: relative; background: #1a1a1a; overflow: hidden; }
+        .horse { position: absolute; font-size: 20px; transition: left 0.1s linear; left: 0; }
+        .btn { background: #222; color: #fff; border: 1px solid #555; padding: 10px 20px; cursor: pointer; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>ĐUA NGỰA TỰ ĐỘNG</h1>
+    <div id="track">
+        <div id="h1" class="horse" style="top: 20px;">🐎 Ngựa 1</div>
+        <div id="h2" class="horse" style="top: 80px;">🐎 Ngựa 2</div>
+        <div id="h3" class="horse" style="top: 140px;">🐎 Ngựa 3</div>
+    </div>
+    <button class="btn" onclick="startRace()">[ CƯỢC VÀ ĐUA ]</button>
+    <p id="result">Chọn ngựa rồi nhấn đua!</p>
+    <a href="index.html" style="color: #888;">[ VỀ SẢNH ]</a>
+
+    <script>
+        function startRace() {
+            let h1 = document.getElementById('h1');
+            let h2 = document.getElementById('h2');
+            let h3 = document.getElementById('h3');
+            let pos = [0, 0, 0];
+            
+            let race = setInterval(() => {
+                for(let i=0; i<3; i++) {
+                    pos[i] += Math.random() * 10;
+                    document.getElementById('h'+(i+1)).style.left = pos[i] + 'px';
+                    
+                    if(pos[i] >= 300) {
+                        clearInterval(race);
+                        document.getElementById('result').innerText = `Ngựa ${i+1} thắng cuộc!`;
+                    }
+                }
+            }, 50);
+        }
+    </script>
+</body>
+</html>
